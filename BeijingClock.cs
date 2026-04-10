@@ -32,6 +32,7 @@ namespace BeijingClock
 
         private Timer timer;
         private DateTime currentTime;
+        private DateTime lastSyncTime;
         private Label timeLabel;
         private Label dateLabel;
         private Label statusLabel;
@@ -56,10 +57,12 @@ namespace BeijingClock
         public MainForm()
         {
             currentTime = DateTime.Now;
+            lastSyncTime = DateTime.Now;
             InitializeComponent();
             SetupWindow();
             StartTimer();
             SyncTime();
+            StartAutoSync();
         }
 
         private void SetupWindow()
@@ -95,7 +98,7 @@ namespace BeijingClock
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(15, 20, 35);
 
-            // 关闭按钮（圆角红色）
+            // 关闭按钮
             closeBtn = new RoundedButton();
             closeBtn.Text = "✕";
             closeBtn.Size = new Size(36, 36);
@@ -108,7 +111,7 @@ namespace BeijingClock
             closeBtn.Font = new Font("Segoe UI", 12, FontStyle.Bold);
             closeBtn.Click += (s, e) => this.Close();
 
-            // 最小化按钮（圆角灰色）
+            // 最小化按钮
             minBtn = new RoundedButton();
             minBtn.Text = "─";
             minBtn.Size = new Size(36, 36);
@@ -132,7 +135,7 @@ namespace BeijingClock
             timeLabel = new Label();
             timeLabel.Font = new Font("Segoe UI", 48, FontStyle.Bold);
             timeLabel.ForeColor = Color.FromArgb(0, 210, 255);
-            timeLabel.Text = "00:00:00.000";
+            timeLabel.Text = "00:00:00.0";
             timeLabel.AutoSize = false;
             timeLabel.Size = new Size(460, 85);
             timeLabel.TextAlign = ContentAlignment.MiddleCenter;
@@ -466,11 +469,10 @@ namespace BeijingClock
 
         private async System.Threading.Tasks.Task<bool> SyncFromNetwork()
         {
-            // 使用多个备用API，提高成功率
             string[] apiUrls = new string[]
             {
-                "http://quan.suning.com/getSysTime.do",  // 苏宁API，返回JSON
-                "http://worldtimeapi.org/api/timezone/Asia/Shanghai" // 原API作为备用
+                "http://quan.suning.com/getSysTime.do",
+                "http://worldtimeapi.org/api/timezone/Asia/Shanghai"
             };
 
             foreach (string url in apiUrls)
@@ -483,35 +485,32 @@ namespace BeijingClock
                         client.Encoding = System.Text.Encoding.UTF8;
                         string json = await client.DownloadStringTaskAsync(url);
                         
-                        // 解析苏宁API返回的时间
                         if (url.Contains("suning.com"))
                         {
-                            // 返回格式: {"sysTime2":"2026-04-10 15:30:25","sysTime1":"20260410153025"}
                             int start = json.IndexOf("\"sysTime2\":\"") + 12;
                             int end = json.IndexOf("\"", start);
                             string timeStr = json.Substring(start, end - start);
                             currentTime = DateTime.Parse(timeStr);
+                            lastSyncTime = DateTime.Now;
                             return true;
                         }
                         else
                         {
-                            // 原worldtimeapi.org的解析逻辑
                             int start = json.IndexOf("\"datetime\":\"") + 12;
                             int end = json.IndexOf("\"", start);
                             string dtStr = json.Substring(start, end - start);
                             currentTime = DateTime.Parse(dtStr.Replace("Z", ""));
+                            lastSyncTime = DateTime.Now;
                             return true;
                         }
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    // 记录失败，尝试下一个API
-                    System.Diagnostics.Debug.WriteLine("API " + url + " 同步失败: " + ex.Message);
+                    // 继续尝试下一个API
                 }
             }
             
-            // 所有API都失败
             statusLabel.Text = "❌ 状态: 同步失败，请检查网络";
             statusLabel.ForeColor = Color.Red;
             return false;
@@ -519,7 +518,6 @@ namespace BeijingClock
 
         private void SyncTime()
         {
-            // 尝试同步，如果失败则使用系统时间并提示
             try
             {
                 using (var client = new WebClient())
@@ -530,34 +528,47 @@ namespace BeijingClock
                     int end = json.IndexOf("\"", start);
                     string timeStr = json.Substring(start, end - start);
                     currentTime = DateTime.Parse(timeStr);
+                    lastSyncTime = DateTime.Now;
                     statusLabel.Text = "✅ 状态: 网络同步成功";
                     statusLabel.ForeColor = Color.FromArgb(0, 210, 140);
                 }
             }
             catch
             {
-                // 同步失败，使用系统时间作为后备
                 currentTime = DateTime.UtcNow.AddHours(8);
+                lastSyncTime = DateTime.Now;
                 statusLabel.Text = "⚠️ 状态: 使用本地时间，网络同步失败";
                 statusLabel.ForeColor = Color.Orange;
             }
         }
 
+        private void StartAutoSync()
+        {
+            Timer autoSyncTimer = new Timer();
+            autoSyncTimer.Interval = 60000; // 每分钟自动同步一次
+            autoSyncTimer.Tick += async (s, e) =>
+            {
+                await SyncFromNetwork();
+            };
+            autoSyncTimer.Start();
+        }
+
         private void StartTimer()
         {
             timer = new Timer();
-            timer.Interval = 20;
+            timer.Interval = 100; // 改为100毫秒刷新一次，减少CPU占用
             timer.Tick += Timer_Tick;
             timer.Start();
         }
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            DateTime now = currentTime.AddMilliseconds(20);
-            currentTime = now;
+            // 关键修复：基于同步时间 + 实际经过的时间，而不是累加
+            DateTime now = currentTime + (DateTime.Now - lastSyncTime);
             
-            string ms = now.Millisecond.ToString("000");
-            timeLabel.Text = now.ToString("HH:mm:ss") + "." + ms;
+            // 只显示1位毫秒
+            int tenthSecond = now.Millisecond / 100;
+            timeLabel.Text = now.ToString("HH:mm:ss") + "." + tenthSecond.ToString();
             dateLabel.Text = now.ToString("yyyy年MM月dd日 dddd");
         }
 
@@ -576,7 +587,9 @@ namespace BeijingClock
         private Color _normalColor = Color.FromArgb(0, 120, 212);
         private Color _hoverColor = Color.FromArgb(0, 140, 240);
         private Color _pressColor = Color.FromArgb(0, 100, 180);
+        private Color _borderColor = Color.FromArgb(100, 255, 255, 255);
         private int _borderRadius = 10;
+        private int _borderWidth = 1;
         private bool _isHovering = false;
         private bool _isPressing = false;
 
@@ -598,10 +611,22 @@ namespace BeijingClock
             set { _pressColor = value; Invalidate(); }
         }
 
+        public Color BorderColor
+        {
+            get { return _borderColor; }
+            set { _borderColor = value; Invalidate(); }
+        }
+
         public int BorderRadius
         {
             get { return _borderRadius; }
             set { _borderRadius = value; Invalidate(); }
+        }
+
+        public int BorderWidth
+        {
+            get { return _borderWidth; }
+            set { _borderWidth = value; Invalidate(); }
         }
 
         public RoundedButton()
@@ -611,11 +636,18 @@ namespace BeijingClock
             this.BackColor = _normalColor;
             this.ForeColor = Color.White;
             this.Cursor = Cursors.Hand;
+            this.TabStop = false;
+            this.SetStyle(ControlStyles.Selectable, false);
             
             this.MouseEnter += (s, e) => { _isHovering = true; _isPressing = false; Invalidate(); };
             this.MouseLeave += (s, e) => { _isHovering = false; _isPressing = false; Invalidate(); };
             this.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) { _isPressing = true; Invalidate(); } };
             this.MouseUp += (s, e) => { _isPressing = false; Invalidate(); };
+        }
+
+        protected override bool ShowFocusCues
+        {
+            get { return false; }
         }
 
         protected override void OnPaint(PaintEventArgs pevent)
@@ -625,8 +657,13 @@ namespace BeijingClock
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             Color currentColor;
+            int pressOffset = 0;
+            
             if (_isPressing)
+            {
                 currentColor = _pressColor;
+                pressOffset = 1;
+            }
             else if (_isHovering)
                 currentColor = _hoverColor;
             else
@@ -638,20 +675,51 @@ namespace BeijingClock
                 g.FillPath(brush, path);
             }
 
-            // 绘制文字
+            if (_borderWidth > 0)
+            {
+                using (GraphicsPath path = GetRoundedRectangle(this.ClientRectangle, _borderRadius))
+                using (Pen pen = new Pen(_borderColor, _borderWidth))
+                {
+                    g.DrawPath(pen, path);
+                }
+            }
+
+            if (_isHovering && !_isPressing)
+            {
+                Rectangle innerRect = new Rectangle(2, 2, this.Width - 4, this.Height - 4);
+                using (GraphicsPath innerPath = GetRoundedRectangle(innerRect, Math.Max(1, _borderRadius - 2)))
+                using (Pen glowPen = new Pen(Color.FromArgb(80, 255, 255, 255), 1))
+                {
+                    g.DrawPath(glowPen, innerPath);
+                }
+            }
+
             using (StringFormat sf = new StringFormat())
             {
                 sf.Alignment = StringAlignment.Center;
                 sf.LineAlignment = StringAlignment.Center;
+                
+                Rectangle textRect = this.ClientRectangle;
+                if (pressOffset > 0)
+                {
+                    textRect = new Rectangle(
+                        this.ClientRectangle.X,
+                        this.ClientRectangle.Y + pressOffset,
+                        this.ClientRectangle.Width,
+                        this.ClientRectangle.Height);
+                }
+                
                 using (SolidBrush textBrush = new SolidBrush(this.ForeColor))
                 {
-                    g.DrawString(this.Text, this.Font, textBrush, this.ClientRectangle, sf);
+                    g.DrawString(this.Text, this.Font, textBrush, textRect, sf);
                 }
             }
         }
 
         private GraphicsPath GetRoundedRectangle(Rectangle rect, int radius)
         {
+            radius = Math.Min(radius, Math.Min(rect.Width / 2, rect.Height / 2));
+            
             GraphicsPath path = new GraphicsPath();
             path.AddArc(rect.X, rect.Y, radius, radius, 180, 90);
             path.AddArc(rect.Right - radius, rect.Y, radius, radius, 270, 90);
