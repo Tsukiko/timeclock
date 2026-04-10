@@ -52,7 +52,6 @@ namespace BeijingClock
         private NumericUpDown alertSecondsNum;
         private NumericUpDown alertDurationNum;
         private Panel soundPanel;
-        private bool soundPanelVisible = false;
 
         public MainForm()
         {
@@ -467,42 +466,91 @@ namespace BeijingClock
 
         private async System.Threading.Tasks.Task<bool> SyncFromNetwork()
         {
-            try
+            // 使用多个备用API，提高成功率
+            string[] apiUrls = new string[]
             {
-                using (var client = new WebClient())
+                "http://quan.suning.com/getSysTime.do",  // 苏宁API，返回JSON
+                "http://api.k780.com/?app=life.time&appkey=10003&sign=b59bc3ef6191eb9f747dd4e83c99f2a4&format=json",  // 备用API1
+                "http://worldtimeapi.org/api/timezone/Asia/Shanghai" // 原API作为备用
+            };
+
+            foreach (string url in apiUrls)
+            {
+                try
                 {
-                    client.Headers.Add("User-Agent", "BeijingClock/1.0");
-                    string json = await client.DownloadStringTaskAsync("http://worldtimeapi.org/api/timezone/Asia/Shanghai");
-                    int start = json.IndexOf("\"datetime\":\"") + 12;
-                    int end = json.IndexOf("\"", start);
-                    string dtStr = json.Substring(start, end - start);
-                    currentTime = DateTime.Parse(dtStr.Replace("Z", ""));
-                    return true;
+                    using (var client = new WebClient())
+                    {
+                        client.Headers.Add("User-Agent", "BeijingClock/1.0");
+                        client.Encoding = System.Text.Encoding.UTF8;
+                        string json = await client.DownloadStringTaskAsync(url);
+                        
+                        // 解析苏宁API返回的时间
+                        if (url.Contains("suning.com"))
+                        {
+                            // 返回格式: {"sysTime2":"2026-04-10 15:30:25","sysTime1":"20260410153025"}
+                            int start = json.IndexOf("\"sysTime2\":\"") + 12;
+                            int end = json.IndexOf("\"", start);
+                            string timeStr = json.Substring(start, end - start);
+                            currentTime = DateTime.Parse(timeStr);
+                            return true;
+                        }
+                        // 解析k780 API
+                        else if (url.Contains("k780.com"))
+                        {
+                            // 返回格式: {"success":"1","result":{"timestamp":"1744284625","datetime_1":"2026-04-10 15:30:25",...}}
+                            int start = json.IndexOf("\"datetime_1\":\"") + 13;
+                            int end = json.IndexOf("\"", start);
+                            string timeStr = json.Substring(start, end - start);
+                            currentTime = DateTime.Parse(timeStr);
+                            return true;
+                        }
+                        else
+                        {
+                            // 原worldtimeapi.org的解析逻辑
+                            int start = json.IndexOf("\"datetime\":\"") + 12;
+                            int end = json.IndexOf("\"", start);
+                            string dtStr = json.Substring(start, end - start);
+                            currentTime = DateTime.Parse(dtStr.Replace("Z", ""));
+                            return true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 记录失败，尝试下一个API
+                    System.Diagnostics.Debug.WriteLine($"API {url} 同步失败: {ex.Message}");
                 }
             }
-            catch
-            {
-                return false;
-            }
+            
+            // 所有API都失败
+            statusLabel.Text = "❌ 状态: 同步失败，请检查网络";
+            statusLabel.ForeColor = Color.Red;
+            return false;
         }
 
         private void SyncTime()
         {
+            // 尝试同步，如果失败则使用系统时间并提示
             try
             {
                 using (var client = new WebClient())
                 {
                     client.Headers.Add("User-Agent", "BeijingClock/1.0");
-                    string json = client.DownloadString("http://worldtimeapi.org/api/timezone/Asia/Shanghai");
-                    int start = json.IndexOf("\"datetime\":\"") + 12;
+                    string json = client.DownloadString("http://quan.suning.com/getSysTime.do");
+                    int start = json.IndexOf("\"sysTime2\":\"") + 12;
                     int end = json.IndexOf("\"", start);
-                    string dtStr = json.Substring(start, end - start);
-                    currentTime = DateTime.Parse(dtStr.Replace("Z", ""));
+                    string timeStr = json.Substring(start, end - start);
+                    currentTime = DateTime.Parse(timeStr);
+                    statusLabel.Text = "✅ 状态: 网络同步成功";
+                    statusLabel.ForeColor = Color.FromArgb(0, 210, 140);
                 }
             }
             catch
             {
+                // 同步失败，使用系统时间作为后备
                 currentTime = DateTime.UtcNow.AddHours(8);
+                statusLabel.Text = "⚠️ 状态: 使用本地时间，网络同步失败";
+                statusLabel.ForeColor = Color.Orange;
             }
         }
 
