@@ -9,48 +9,12 @@ namespace BeijingClock
 {
     public partial class MainForm : Form
     {
-        // 窗口置顶
         [DllImport("user32.dll")]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
-
-        // 毛玻璃效果 (Windows 10/11)
-        [DllImport("user32.dll")]
-        private static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
-        
-        [StructLayout(LayoutKind.Sequential)]
-        private struct WindowCompositionAttributeData
-        {
-            public WindowCompositionAttribute Attribute;
-            public IntPtr Data;
-            public int SizeOfData;
-        }
-        
-        private enum WindowCompositionAttribute
-        {
-            WCA_ACCENT_POLICY = 19
-        }
-        
-        [StructLayout(LayoutKind.Sequential)]
-        private struct AccentPolicy
-        {
-            public AccentState AccentState;
-            public int AccentFlags;
-            public int GradientColor;
-            public int AnimationId;
-        }
-        
-        private enum AccentState
-        {
-            ACCENT_DISABLED = 0,
-            ACCENT_ENABLE_GRADIENT = 1,
-            ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
-            ACCENT_ENABLE_BLURBEHIND = 3,
-            ACCENT_ENABLE_ACRYLICBLURBEHIND = 4
-        }
 
         private System.Windows.Forms.Timer timer;
         private System.Windows.Forms.Timer syncTimer;
@@ -62,7 +26,6 @@ namespace BeijingClock
         private int alertDuration = 3;
         private bool lastAlertTriggered = false;
         private bool isAlerting = false;
-        private bool isTransparent = true;
         
         private Label timeLabel;
         private Label dateLabel;
@@ -71,98 +34,64 @@ namespace BeijingClock
         private CheckBox topCheck;
         private CheckBox autoSyncCheck;
         private CheckBox alertCheck;
-        private CheckBox transparentCheck;
         private NumericUpDown alertSecondsNum;
         private NumericUpDown alertDurationNum;
         private Panel settingsPanel;
-        private bool settingsVisible = false;
 
         public MainForm()
         {
             currentTime = DateTime.Now;
             InitializeComponent();
-            ApplyAcrylicBlur();
             StartTimers();
             StartAutoSync();
-        }
-
-        private void ApplyAcrylicBlur()
-        {
-            try
-            {
-                var accent = new AccentPolicy();
-                accent.AccentState = AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND;
-                accent.GradientColor = (0x40 << 24) | (0x1A << 16) | (0x1F << 8) | 0x2C;
-                
-                var accentStructSize = Marshal.SizeOf(accent);
-                var accentPtr = Marshal.AllocHGlobal(accentStructSize);
-                Marshal.StructureToPtr(accent, accentPtr, false);
-                
-                var data = new WindowCompositionAttributeData();
-                data.Attribute = WindowCompositionAttribute.WCA_ACCENT_POLICY;
-                data.SizeOfData = accentStructSize;
-                data.Data = accentPtr;
-                
-                SetWindowCompositionAttribute(this.Handle, ref data);
-                
-                Marshal.FreeHGlobal(accentPtr);
-                
-                this.BackColor = Color.FromArgb(50, 20, 25, 40);
-                this.TransparencyKey = Color.Empty;
-            }
-            catch
-            {
-                this.BackColor = Color.FromArgb(200, 20, 25, 40);
-            }
         }
 
         private void InitializeComponent()
         {
             this.Text = "北京时间同步器";
-            this.Size = new Size(440, 380);
+            this.Size = new Size(420, 370);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
-            this.BackColor = Color.FromArgb(220, 20, 25, 40);
-            this.Opacity = 0.92;
+            this.BackColor = Color.FromArgb(30, 30, 45);
+            this.Opacity = 0.95;
 
             // 时间标签
             timeLabel = new Label();
             timeLabel.Font = new Font("Segoe UI", 48, FontStyle.Bold);
-            timeLabel.ForeColor = Color.FromArgb(0, 230, 255);
+            timeLabel.ForeColor = Color.FromArgb(0, 200, 255);
             timeLabel.Text = "00:00:00.000";
             timeLabel.AutoSize = false;
             timeLabel.Size = new Size(400, 80);
             timeLabel.TextAlign = ContentAlignment.MiddleCenter;
-            timeLabel.Location = new Point(20, 20);
+            timeLabel.Location = new Point(10, 20);
             timeLabel.BackColor = Color.Transparent;
 
             // 日期标签
             dateLabel = new Label();
             dateLabel.Font = new Font("Segoe UI", 12);
-            dateLabel.ForeColor = Color.FromArgb(220, 230, 255);
+            dateLabel.ForeColor = Color.FromArgb(200, 210, 240);
             dateLabel.Text = "2024年01月01日 星期一";
             dateLabel.AutoSize = false;
             dateLabel.Size = new Size(400, 30);
             dateLabel.TextAlign = ContentAlignment.MiddleCenter;
-            dateLabel.Location = new Point(20, 100);
+            dateLabel.Location = new Point(10, 100);
             dateLabel.BackColor = Color.Transparent;
 
             // 手动同步按钮
             manualSyncBtn = new Button();
-            manualSyncBtn.Text = "🔄 手动同步";
-            manualSyncBtn.Size = new Size(120, 35);
-            manualSyncBtn.Location = new Point(150, 145);
-            manualSyncBtn.BackColor = Color.FromArgb(80, 0, 120, 212);
+            manualSyncBtn.Text = "手动同步";
+            manualSyncBtn.Size = new Size(100, 35);
+            manualSyncBtn.Location = new Point(160, 145);
+            manualSyncBtn.BackColor = Color.FromArgb(0, 120, 212);
             manualSyncBtn.ForeColor = Color.White;
             manualSyncBtn.FlatStyle = FlatStyle.Flat;
-            manualSyncBtn.FlatAppearance.BorderSize = 0;
             manualSyncBtn.Click += ManualSyncBtn_Click;
 
             // 置顶复选框
             topCheck = new CheckBox();
-            topCheck.Text = "📌 窗口置顶";
-            topCheck.Location = new Point(15, 195);
+            topCheck.Text = "窗口置顶";
+            topCheck.Location = new Point(20, 195);
             topCheck.Size = new Size(100, 25);
             topCheck.ForeColor = Color.White;
             topCheck.BackColor = Color.Transparent;
@@ -170,8 +99,8 @@ namespace BeijingClock
 
             // 自动同步复选框
             autoSyncCheck = new CheckBox();
-            autoSyncCheck.Text = "🔄 自动同步";
-            autoSyncCheck.Location = new Point(125, 195);
+            autoSyncCheck.Text = "自动同步";
+            autoSyncCheck.Location = new Point(130, 195);
             autoSyncCheck.Size = new Size(100, 25);
             autoSyncCheck.ForeColor = Color.White;
             autoSyncCheck.BackColor = Color.Transparent;
@@ -180,28 +109,18 @@ namespace BeijingClock
 
             // 声音提醒复选框
             alertCheck = new CheckBox();
-            alertCheck.Text = "🔔 启用提醒";
-            alertCheck.Location = new Point(235, 195);
+            alertCheck.Text = "启用提醒";
+            alertCheck.Location = new Point(240, 195);
             alertCheck.Size = new Size(100, 25);
             alertCheck.ForeColor = Color.White;
             alertCheck.BackColor = Color.Transparent;
             alertCheck.CheckedChanged += AlertCheck_CheckedChanged;
 
-            // 透明效果复选框
-            transparentCheck = new CheckBox();
-            transparentCheck.Text = "✨ 毛玻璃";
-            transparentCheck.Location = new Point(345, 195);
-            transparentCheck.Size = new Size(80, 25);
-            transparentCheck.ForeColor = Color.FromArgb(0, 230, 255);
-            transparentCheck.BackColor = Color.Transparent;
-            transparentCheck.Checked = true;
-            transparentCheck.CheckedChanged += TransparentCheck_CheckedChanged;
-
             // 设置面板
             settingsPanel = new Panel();
             settingsPanel.Height = 0;
-            settingsPanel.Width = 400;
-            settingsPanel.BackColor = Color.FromArgb(60, 30, 35, 55);
+            settingsPanel.Width = 380;
+            settingsPanel.BackColor = Color.FromArgb(50, 40, 45, 65);
             settingsPanel.Location = new Point(20, 225);
             settingsPanel.Visible = false;
 
@@ -218,7 +137,7 @@ namespace BeijingClock
             alertSecondsNum.Minimum = 1;
             alertSecondsNum.Maximum = 30;
             alertSecondsNum.Value = 5;
-            alertSecondsNum.BackColor = Color.FromArgb(80, 50, 55, 75);
+            alertSecondsNum.BackColor = Color.FromArgb(60, 60, 80);
             alertSecondsNum.ForeColor = Color.White;
             
             Label secLabel1 = new Label();
@@ -241,7 +160,7 @@ namespace BeijingClock
             alertDurationNum.Minimum = 1;
             alertDurationNum.Maximum = 10;
             alertDurationNum.Value = 3;
-            alertDurationNum.BackColor = Color.FromArgb(80, 50, 55, 75);
+            alertDurationNum.BackColor = Color.FromArgb(60, 60, 80);
             alertDurationNum.ForeColor = Color.White;
             
             Label secLabel2 = new Label();
@@ -255,37 +174,20 @@ namespace BeijingClock
 
             // 状态栏
             statusLabel = new Label();
-            statusLabel.Text = "✅ 状态: 运行中";
-            statusLabel.ForeColor = Color.FromArgb(0, 230, 150);
+            statusLabel.Text = "状态: 运行中";
+            statusLabel.ForeColor = Color.FromArgb(0, 200, 100);
             statusLabel.AutoSize = false;
             statusLabel.Size = new Size(400, 25);
             statusLabel.TextAlign = ContentAlignment.MiddleCenter;
-            statusLabel.Location = new Point(20, 300);
+            statusLabel.Location = new Point(10, 290);
             statusLabel.BackColor = Color.Transparent;
 
-            this.Controls.AddRange(new Control[] { timeLabel, dateLabel, manualSyncBtn, topCheck, autoSyncCheck, alertCheck, transparentCheck, settingsPanel, statusLabel });
-        }
-
-        private void TransparentCheck_CheckedChanged(object sender, EventArgs e)
-        {
-            isTransparent = transparentCheck.Checked;
-            if (isTransparent)
-            {
-                this.Opacity = 0.92;
-                this.BackColor = Color.FromArgb(220, 20, 25, 40);
-                ApplyAcrylicBlur();
-            }
-            else
-            {
-                this.Opacity = 1.0;
-                this.BackColor = Color.FromArgb(20, 25, 40);
-            }
+            this.Controls.AddRange(new Control[] { timeLabel, dateLabel, manualSyncBtn, topCheck, autoSyncCheck, alertCheck, settingsPanel, statusLabel });
         }
 
         private void TopCheck_CheckedChanged(object sender, EventArgs e)
         {
-            isTopMost = topCheck.Checked;
-            this.TopMost = isTopMost;
+            this.TopMost = topCheck.Checked;
         }
 
         private void AutoSyncCheck_CheckedChanged(object sender, EventArgs e)
@@ -313,7 +215,7 @@ namespace BeijingClock
 
         private async void ManualSyncBtn_Click(object sender, EventArgs e)
         {
-            statusLabel.Text = "⏳ 状态: 同步中...";
+            statusLabel.Text = "状态: 同步中...";
             statusLabel.ForeColor = Color.Orange;
             manualSyncBtn.Enabled = false;
 
@@ -321,12 +223,12 @@ namespace BeijingClock
 
             if (success)
             {
-                statusLabel.Text = "✅ 状态: 同步成功";
-                statusLabel.ForeColor = Color.FromArgb(0, 230, 150);
+                statusLabel.Text = "状态: 同步成功";
+                statusLabel.ForeColor = Color.FromArgb(0, 200, 100);
             }
             else
             {
-                statusLabel.Text = "❌ 状态: 同步失败";
+                statusLabel.Text = "状态: 同步失败";
                 statusLabel.ForeColor = Color.Red;
             }
 
@@ -421,7 +323,7 @@ namespace BeijingClock
                 }
             };
             syncTimer.Start();
-            var task = SyncFromNetwork();
+            _ = SyncFromNetwork();
         }
 
         [STAThread]
