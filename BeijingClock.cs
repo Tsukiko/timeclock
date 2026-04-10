@@ -470,7 +470,6 @@ namespace BeijingClock
             string[] apiUrls = new string[]
             {
                 "http://quan.suning.com/getSysTime.do",  // 苏宁API，返回JSON
-                "http://api.k780.com/?app=life.time&appkey=10003&sign=b59bc3ef6191eb9f747dd4e83c99f2a4&format=json",  // 备用API1
                 "http://worldtimeapi.org/api/timezone/Asia/Shanghai" // 原API作为备用
             };
 
@@ -494,16 +493,6 @@ namespace BeijingClock
                             currentTime = DateTime.Parse(timeStr);
                             return true;
                         }
-                        // 解析k780 API
-                        else if (url.Contains("k780.com"))
-                        {
-                            // 返回格式: {"success":"1","result":{"timestamp":"1744284625","datetime_1":"2026-04-10 15:30:25",...}}
-                            int start = json.IndexOf("\"datetime_1\":\"") + 13;
-                            int end = json.IndexOf("\"", start);
-                            string timeStr = json.Substring(start, end - start);
-                            currentTime = DateTime.Parse(timeStr);
-                            return true;
-                        }
                         else
                         {
                             // 原worldtimeapi.org的解析逻辑
@@ -518,7 +507,7 @@ namespace BeijingClock
                 catch (Exception ex)
                 {
                     // 记录失败，尝试下一个API
-                    System.Diagnostics.Debug.WriteLine($"API {url} 同步失败: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine("API " + url + " 同步失败: " + ex.Message);
                 }
             }
             
