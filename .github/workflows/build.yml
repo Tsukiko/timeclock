@@ -24,7 +24,7 @@ jobs:
     
     - name: Build EXE
       run: |
-        pyinstaller --onefile --name=BeijingClock beijing_clock.py
+        pyinstaller --onefile --name=BeijingClock --noconsole --hidden-import=tkinter --hidden-import=requests beijing_clock.py
     
     - name: Upload EXE
       uses: actions/upload-artifact@v4
