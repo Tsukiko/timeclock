@@ -50,7 +50,7 @@ namespace BeijingClock
         private void InitializeComponent()
         {
             this.Text = "北京时间同步器";
-            this.Size = new Size(400, 350);
+            this.Size = new Size(420, 370);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
@@ -62,7 +62,7 @@ namespace BeijingClock
             timeLabel.ForeColor = Color.FromArgb(0, 200, 255);
             timeLabel.Text = "00:00:00.000";
             timeLabel.AutoSize = false;
-            timeLabel.Size = new Size(380, 80);
+            timeLabel.Size = new Size(400, 80);
             timeLabel.TextAlign = ContentAlignment.MiddleCenter;
             timeLabel.Location = new Point(10, 20);
 
@@ -72,15 +72,15 @@ namespace BeijingClock
             dateLabel.ForeColor = Color.FromArgb(180, 190, 220);
             dateLabel.Text = "2024年01月01日 星期一";
             dateLabel.AutoSize = false;
-            dateLabel.Size = new Size(380, 30);
+            dateLabel.Size = new Size(400, 30);
             dateLabel.TextAlign = ContentAlignment.MiddleCenter;
             dateLabel.Location = new Point(10, 100);
 
             // 手动同步按钮
             manualSyncBtn = new Button();
-            manualSyncBtn.Text = "手动同步";
-            manualSyncBtn.Size = new Size(100, 35);
-            manualSyncBtn.Location = new Point(145, 145);
+            manualSyncBtn.Text = "🔄 手动同步";
+            manualSyncBtn.Size = new Size(120, 35);
+            manualSyncBtn.Location = new Point(150, 145);
             manualSyncBtn.BackColor = Color.FromArgb(0, 120, 212);
             manualSyncBtn.ForeColor = Color.White;
             manualSyncBtn.FlatStyle = FlatStyle.Flat;
@@ -88,95 +88,99 @@ namespace BeijingClock
 
             // 置顶复选框
             topCheck = new CheckBox();
-            topCheck.Text = "窗口置顶";
+            topCheck.Text = "📌 窗口置顶";
             topCheck.Location = new Point(20, 195);
-            topCheck.AutoSize = true;
+            topCheck.Size = new Size(100, 25);
             topCheck.ForeColor = Color.White;
             topCheck.CheckedChanged += TopCheck_CheckedChanged;
 
             // 自动同步复选框
             autoSyncCheck = new CheckBox();
-            autoSyncCheck.Text = "自动同步";
-            autoSyncCheck.Location = new Point(120, 195);
-            autoSyncCheck.AutoSize = true;
+            autoSyncCheck.Text = "🔄 自动同步";
+            autoSyncCheck.Location = new Point(130, 195);
+            autoSyncCheck.Size = new Size(100, 25);
             autoSyncCheck.ForeColor = Color.White;
             autoSyncCheck.Checked = true;
             autoSyncCheck.CheckedChanged += AutoSyncCheck_CheckedChanged;
 
             // 声音提醒复选框
             alertCheck = new CheckBox();
-            alertCheck.Text = "启用提醒";
-            alertCheck.Location = new Point(220, 195);
-            alertCheck.AutoSize = true;
+            alertCheck.Text = "🔔 启用提醒";
+            alertCheck.Location = new Point(240, 195);
+            alertCheck.Size = new Size(100, 25);
             alertCheck.ForeColor = Color.White;
             alertCheck.CheckedChanged += AlertCheck_CheckedChanged;
 
             // 设置面板
             settingsPanel = new Panel();
             settingsPanel.Height = 0;
-            settingsPanel.Width = 360;
+            settingsPanel.Width = 380;
             settingsPanel.BackColor = Color.FromArgb(30, 35, 55);
-            settingsPanel.Location = new Point(20, 220);
+            settingsPanel.Location = new Point(20, 225);
             settingsPanel.Visible = false;
 
             Label preLabel = new Label();
             preLabel.Text = "提前:";
-            preLabel.Location = new Point(10, 10);
-            preLabel.AutoSize = true;
+            preLabel.Location = new Point(15, 12);
+            preLabel.Size = new Size(40, 23);
             preLabel.ForeColor = Color.White;
             
             alertSecondsNum = new NumericUpDown();
-            alertSecondsNum.Location = new Point(55, 8);
-            alertSecondsNum.Size = new Size(50, 23);
+            alertSecondsNum.Location = new Point(55, 10);
+            alertSecondsNum.Size = new Size(55, 25);
             alertSecondsNum.Minimum = 1;
             alertSecondsNum.Maximum = 30;
             alertSecondsNum.Value = 5;
+            alertSecondsNum.BackColor = Color.FromArgb(50, 55, 75);
+            alertSecondsNum.ForeColor = Color.White;
             
             Label secLabel1 = new Label();
-            secLabel1.Text = "秒";
-            secLabel1.Location = new Point(110, 10);
-            secLabel1.AutoSize = true;
+            secLabel1.Text = "秒时提醒";
+            secLabel1.Location = new Point(115, 12);
+            secLabel1.Size = new Size(70, 23);
             secLabel1.ForeColor = Color.White;
 
             Label durLabel = new Label();
             durLabel.Text = "持续:";
-            durLabel.Location = new Point(150, 10);
-            durLabel.AutoSize = true;
+            durLabel.Location = new Point(195, 12);
+            durLabel.Size = new Size(40, 23);
             durLabel.ForeColor = Color.White;
             
             alertDurationNum = new NumericUpDown();
-            alertDurationNum.Location = new Point(195, 8);
-            alertDurationNum.Size = new Size(50, 23);
+            alertDurationNum.Location = new Point(235, 10);
+            alertDurationNum.Size = new Size(55, 25);
             alertDurationNum.Minimum = 1;
             alertDurationNum.Maximum = 10;
             alertDurationNum.Value = 3;
+            alertDurationNum.BackColor = Color.FromArgb(50, 55, 75);
+            alertDurationNum.ForeColor = Color.White;
             
             Label secLabel2 = new Label();
             secLabel2.Text = "秒";
-            secLabel2.Location = new Point(250, 10);
-            secLabel2.AutoSize = true;
+            secLabel2.Location = new Point(295, 12);
+            secLabel2.Size = new Size(30, 23);
             secLabel2.ForeColor = Color.White;
 
             settingsPanel.Controls.AddRange(new Control[] { preLabel, alertSecondsNum, secLabel1, durLabel, alertDurationNum, secLabel2 });
 
             // 状态栏
             statusLabel = new Label();
-            statusLabel.Text = "状态: 运行中";
+            statusLabel.Text = "✅ 状态: 运行中";
             statusLabel.ForeColor = Color.FromArgb(0, 200, 100);
             statusLabel.AutoSize = false;
-            statusLabel.Size = new Size(380, 25);
+            statusLabel.Size = new Size(400, 25);
             statusLabel.TextAlign = ContentAlignment.MiddleCenter;
-            statusLabel.Location = new Point(10, 280);
+            statusLabel.Location = new Point(10, 290);
 
             this.Controls.AddRange(new Control[] { timeLabel, dateLabel, manualSyncBtn, topCheck, autoSyncCheck, alertCheck, settingsPanel, statusLabel });
         }
 
-private void TopCheck_CheckedChanged(object sender, EventArgs e)
-{
-    isTopMost = topCheck.Checked;
-    // 只改变置顶属性，不影响焦点
-    this.TopMost = isTopMost;
-}
+        private void TopCheck_CheckedChanged(object sender, EventArgs e)
+        {
+            isTopMost = topCheck.Checked;
+            // 只改变置顶属性，不影响焦点切换
+            this.TopMost = isTopMost;
+        }
 
         private void AutoSyncCheck_CheckedChanged(object sender, EventArgs e)
         {
@@ -203,7 +207,7 @@ private void TopCheck_CheckedChanged(object sender, EventArgs e)
 
         private async void ManualSyncBtn_Click(object sender, EventArgs e)
         {
-            statusLabel.Text = "状态: 同步中...";
+            statusLabel.Text = "⏳ 状态: 同步中...";
             statusLabel.ForeColor = Color.Orange;
             manualSyncBtn.Enabled = false;
 
@@ -211,12 +215,12 @@ private void TopCheck_CheckedChanged(object sender, EventArgs e)
 
             if (success)
             {
-                statusLabel.Text = "状态: 同步成功";
+                statusLabel.Text = "✅ 状态: 同步成功";
                 statusLabel.ForeColor = Color.FromArgb(0, 200, 100);
             }
             else
             {
-                statusLabel.Text = "状态: 同步失败";
+                statusLabel.Text = "❌ 状态: 同步失败";
                 statusLabel.ForeColor = Color.Red;
             }
 
