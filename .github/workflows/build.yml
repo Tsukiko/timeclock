@@ -1,0 +1,39 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Create C# project file
+      run: |
+        @"
+        <Project Sdk=""Microsoft.NET.Sdk"">
+          <PropertyGroup>
+            <OutputType>WinExe</OutputType>
+            <TargetFramework>net48</TargetFramework>
+            <UseWindowsForms>true</UseWindowsForms>
+            <LangVersion>latest</LangVersion>
+            <Nullable>enable</Nullable>
+          </PropertyGroup>
+        </Project>
+        "@ > BeijingClock.csproj
+    
+    - name: Build EXE
+      run: msbuild BeijingClock.csproj /p:Configuration=Release /p:OutputPath=./bin
+    
+    - name: Upload EXE
+      uses: actions/upload-artifact@v4
+      with:
+        name: BeijingClock-Windows
+        path: bin/BeijingClock.exe
