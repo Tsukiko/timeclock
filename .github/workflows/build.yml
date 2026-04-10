@@ -16,21 +16,19 @@ jobs:
       uses: microsoft/setup-msbuild@v2
     
     - name: Create C# project file
+      shell: cmd
       run: |
-        @"
-        <Project Sdk=""Microsoft.NET.Sdk"">
-          <PropertyGroup>
-            <OutputType>WinExe</OutputType>
-            <TargetFramework>net48</TargetFramework>
-            <UseWindowsForms>true</UseWindowsForms>
-            <LangVersion>latest</LangVersion>
-            <Nullable>enable</Nullable>
-          </PropertyGroup>
-        </Project>
-        "@ > BeijingClock.csproj
+        echo ^<Project Sdk="Microsoft.NET.Sdk"^> > BeijingClock.csproj
+        echo   ^<PropertyGroup^> >> BeijingClock.csproj
+        echo     ^<OutputType^>WinExe^</OutputType^> >> BeijingClock.csproj
+        echo     ^<TargetFramework^>net48^</TargetFramework^> >> BeijingClock.csproj
+        echo     ^<UseWindowsForms^>true^</UseWindowsForms^> >> BeijingClock.csproj
+        echo     ^<LangVersion^>7.3^</LangVersion^> >> BeijingClock.csproj
+        echo   ^</PropertyGroup^> >> BeijingClock.csproj
+        echo ^</Project^> >> BeijingClock.csproj
     
     - name: Build EXE
-      run: msbuild BeijingClock.csproj /p:Configuration=Release /p:OutputPath=./bin
+      run: msbuild BeijingClock.csproj /p:Configuration=Release /p:OutputPath=./bin /p:AssemblyName=BeijingClock
     
     - name: Upload EXE
       uses: actions/upload-artifact@v4
