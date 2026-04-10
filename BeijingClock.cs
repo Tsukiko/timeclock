@@ -171,11 +171,12 @@ namespace BeijingClock
             this.Controls.AddRange(new Control[] { timeLabel, dateLabel, manualSyncBtn, topCheck, autoSyncCheck, alertCheck, settingsPanel, statusLabel });
         }
 
-        private void TopCheck_CheckedChanged(object sender, EventArgs e)
-        {
-            isTopMost = topCheck.Checked;
-            SetWindowPos(this.Handle, isTopMost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-        }
+private void TopCheck_CheckedChanged(object sender, EventArgs e)
+{
+    isTopMost = topCheck.Checked;
+    // 只改变置顶属性，不影响焦点
+    this.TopMost = isTopMost;
+}
 
         private void AutoSyncCheck_CheckedChanged(object sender, EventArgs e)
         {
