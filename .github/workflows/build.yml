@@ -12,26 +12,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
-    
-    - name: Create C# project file
+    - name: Compile with csc.exe
       shell: cmd
       run: |
-        echo ^<Project Sdk="Microsoft.NET.Sdk"^> > BeijingClock.csproj
-        echo   ^<PropertyGroup^> >> BeijingClock.csproj
-        echo     ^<OutputType^>WinExe^</OutputType^> >> BeijingClock.csproj
-        echo     ^<TargetFramework^>net48^</TargetFramework^> >> BeijingClock.csproj
-        echo     ^<UseWindowsForms^>true^</UseWindowsForms^> >> BeijingClock.csproj
-        echo     ^<LangVersion^>7.3^</LangVersion^> >> BeijingClock.csproj
-        echo   ^</PropertyGroup^> >> BeijingClock.csproj
-        echo ^</Project^> >> BeijingClock.csproj
-    
-    - name: Build EXE
-      run: msbuild BeijingClock.csproj /p:Configuration=Release /p:OutputPath=./bin /p:AssemblyName=BeijingClock
+        dir /s /b "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+        "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe" /target:winexe /out:BeijingClock.exe /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:System.Net.Http.dll BeijingClock.cs
     
     - name: Upload EXE
       uses: actions/upload-artifact@v4
       with:
         name: BeijingClock-Windows
-        path: bin/BeijingClock.exe
+        path: BeijingClock.exe
