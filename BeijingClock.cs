@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
-using System.Net.Http;
-using System.Runtime.InteropServices;
+using System.Net;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -28,7 +27,6 @@ namespace BeijingClock
         private int alertDuration = 3;
         private bool lastAlertTriggered = false;
         private bool isAlerting = false;
-        private readonly HttpClient httpClient;
         private Label timeLabel;
         private Label dateLabel;
         private Label statusLabel;
@@ -41,7 +39,6 @@ namespace BeijingClock
 
         public MainForm()
         {
-            httpClient = new HttpClient();
             currentTime = DateTime.Now;
             InitializeComponent();
             StartTimers();
@@ -211,24 +208,18 @@ namespace BeijingClock
             manualSyncBtn.Enabled = true;
         }
 
-        private async Task<bool> SyncFromNetwork()
+        private async System.Threading.Tasks.Task<bool> SyncFromNetwork()
         {
             try
             {
-                using (var client = new HttpClient())
+                using (var client = new WebClient())
                 {
-                    client.Timeout = TimeSpan.FromSeconds(5);
-                    HttpResponseMessage response = await client.GetAsync("http://worldtimeapi.org/api/timezone/Asia/Shanghai");
-                    if (response.IsSuccessStatusCode)
-                    {
-                        string json = await response.Content.ReadAsStringAsync();
-                        // 简单解析 datetime 字段
-                        int start = json.IndexOf("\"datetime\":\"") + 12;
-                        int end = json.IndexOf("\"", start);
-                        string dtStr = json.Substring(start, end - start);
-                        currentTime = DateTime.Parse(dtStr.Replace("Z", ""));
-                        return true;
-                    }
+                    string json = await client.DownloadStringTaskAsync("http://worldtimeapi.org/api/timezone/Asia/Shanghai");
+                    int start = json.IndexOf("\"datetime\":\"") + 12;
+                    int end = json.IndexOf("\"", start);
+                    string dtStr = json.Substring(start, end - start);
+                    currentTime = DateTime.Parse(dtStr.Replace("Z", ""));
+                    return true;
                 }
             }
             catch { }
@@ -237,7 +228,6 @@ namespace BeijingClock
 
         private void StartTimers()
         {
-            // 更新时间显示（每20ms）
             timer = new Timer();
             timer.Interval = 20;
             timer.Tick += Timer_Tick;
@@ -252,11 +242,9 @@ namespace BeijingClock
             else
                 now = DateTime.UtcNow.AddHours(8);
 
-            // 更新时间显示
             timeLabel.Text = now.ToString("HH:mm:ss") + $".{now.Millisecond:000}";
             dateLabel.Text = now.ToString("yyyy年MM月dd日 dddd");
 
-            // 检查提醒
             if (alertEnabled)
             {
                 CheckAlert(now);
@@ -302,7 +290,7 @@ namespace BeijingClock
         private void StartAutoSync()
         {
             syncTimer = new Timer();
-            syncTimer.Interval = 60000; // 每分钟同步一次
+            syncTimer.Interval = 60000;
             syncTimer.Tick += async (s, e) =>
             {
                 if (autoSync)
@@ -311,7 +299,6 @@ namespace BeijingClock
                 }
             };
             syncTimer.Start();
-            // 立即同步一次
             _ = SyncFromNetwork();
         }
 
@@ -322,5 +309,8 @@ namespace BeijingClock
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
         }
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     }
 }
