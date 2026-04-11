@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Net;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
@@ -9,6 +10,9 @@ namespace BeijingClock
 {
     public partial class MainForm : Form
     {
+        // 版本号
+        private const string VERSION = "2.1.0";
+
         // 用于窗口拖动
         [DllImport("user32.dll")]
         public static extern bool ReleaseCapture();
@@ -36,6 +40,7 @@ namespace BeijingClock
         private Label timeLabel;
         private Label dateLabel;
         private Label statusLabel;
+        private Label versionLabel;
         private RoundedButton manualSyncBtn;
         private RoundedButton topBtn;
         private RoundedButton soundBtn;
@@ -63,6 +68,10 @@ namespace BeijingClock
             StartTimer();
             SyncTime();
             StartAutoSync();
+            
+            // 移除所有控件的焦点
+            this.GotFocus += (s, e) => { this.ActiveControl = null; };
+            this.MouseClick += (s, e) => { this.ActiveControl = null; };
         }
 
         private void SetupWindow()
@@ -72,6 +81,9 @@ namespace BeijingClock
             this.BackColor = Color.FromArgb(15, 20, 35);
             this.Opacity = 0.96;
             
+            // 设置窗口图标
+            this.Icon = CreateAppIcon();
+            
             MARGINS margins = new MARGINS();
             margins.leftWidth = 5;
             margins.rightWidth = 5;
@@ -80,6 +92,50 @@ namespace BeijingClock
             DwmExtendFrameIntoClientArea(this.Handle, ref margins);
             
             this.MouseDown += Form_MouseDown;
+        }
+
+        // 创建应用程序图标
+        private Icon CreateAppIcon()
+        {
+            Bitmap bmp = new Bitmap(64, 64);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.Clear(Color.Transparent);
+                
+                // 绘制圆形背景
+                using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(0, 120, 212)))
+                {
+                    g.FillEllipse(bgBrush, 4, 4, 56, 56);
+                }
+                
+                // 绘制钟表外圈
+                using (Pen pen = new Pen(Color.White, 3))
+                {
+                    g.DrawEllipse(pen, 8, 8, 48, 48);
+                }
+                
+                // 绘制时针
+                using (Pen handPen = new Pen(Color.White, 3))
+                {
+                    handPen.EndCap = LineCap.ArrowAnchor;
+                    g.DrawLine(handPen, 32, 32, 32, 20);
+                }
+                
+                // 绘制分针
+                using (Pen handPen = new Pen(Color.White, 2))
+                {
+                    g.DrawLine(handPen, 32, 32, 42, 28);
+                }
+                
+                // 绘制中心点
+                using (SolidBrush centerBrush = new SolidBrush(Color.White))
+                {
+                    g.FillEllipse(centerBrush, 29, 29, 6, 6);
+                }
+            }
+            
+            return Icon.FromHandle(bmp.GetHicon());
         }
 
         private void Form_MouseDown(object sender, MouseEventArgs e)
@@ -93,8 +149,8 @@ namespace BeijingClock
 
         private void InitializeComponent()
         {
-            this.Text = "北京时间同步器";
-            this.Size = new Size(500, 400);
+            this.Text = "北京时间同步器 v" + VERSION;
+            this.Size = new Size(520, 470);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(15, 20, 35);
 
@@ -102,7 +158,7 @@ namespace BeijingClock
             closeBtn = new RoundedButton();
             closeBtn.Text = "✕";
             closeBtn.Size = new Size(36, 36);
-            closeBtn.Location = new Point(452, 8);
+            closeBtn.Location = new Point(472, 8);
             closeBtn.BorderRadius = 18;
             closeBtn.NormalColor = Color.FromArgb(45, 50, 70);
             closeBtn.HoverColor = Color.FromArgb(220, 60, 60);
@@ -115,7 +171,7 @@ namespace BeijingClock
             minBtn = new RoundedButton();
             minBtn.Text = "─";
             minBtn.Size = new Size(36, 36);
-            minBtn.Location = new Point(410, 8);
+            minBtn.Location = new Point(430, 8);
             minBtn.BorderRadius = 18;
             minBtn.NormalColor = Color.FromArgb(45, 50, 70);
             minBtn.HoverColor = Color.FromArgb(80, 90, 120);
@@ -126,8 +182,8 @@ namespace BeijingClock
 
             // 时间显示面板
             timePanel = new Panel();
-            timePanel.Size = new Size(460, 140);
-            timePanel.Location = new Point(20, 55);
+            timePanel.Size = new Size(480, 140);
+            timePanel.Location = new Point(20, 50);
             timePanel.BackColor = Color.FromArgb(25, 32, 55);
             timePanel.Paint += TimePanel_Paint;
 
@@ -137,7 +193,7 @@ namespace BeijingClock
             timeLabel.ForeColor = Color.FromArgb(0, 210, 255);
             timeLabel.Text = "00:00:00.0";
             timeLabel.AutoSize = false;
-            timeLabel.Size = new Size(460, 85);
+            timeLabel.Size = new Size(480, 85);
             timeLabel.TextAlign = ContentAlignment.MiddleCenter;
             timeLabel.Location = new Point(0, 15);
             timeLabel.BackColor = Color.Transparent;
@@ -148,7 +204,7 @@ namespace BeijingClock
             dateLabel.ForeColor = Color.FromArgb(160, 180, 220);
             dateLabel.Text = "2024年01月01日 星期一";
             dateLabel.AutoSize = false;
-            dateLabel.Size = new Size(460, 30);
+            dateLabel.Size = new Size(480, 30);
             dateLabel.TextAlign = ContentAlignment.MiddleCenter;
             dateLabel.Location = new Point(0, 95);
             dateLabel.BackColor = Color.Transparent;
@@ -156,12 +212,26 @@ namespace BeijingClock
             timePanel.Controls.Add(timeLabel);
             timePanel.Controls.Add(dateLabel);
 
-            // 手动同步按钮
+            // ========== 按钮区域 1：时间控制 ==========
+            Panel controlPanel1 = new Panel();
+            controlPanel1.Size = new Size(480, 55);
+            controlPanel1.Location = new Point(20, 205);
+            controlPanel1.BackColor = Color.FromArgb(22, 28, 48);
+            controlPanel1.Paint += (s, e) => DrawPanelBorder(e.Graphics, controlPanel1.Width, controlPanel1.Height);
+            
+            Label label1 = new Label();
+            label1.Text = "⏰ 时间控制";
+            label1.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            label1.ForeColor = Color.FromArgb(100, 150, 200);
+            label1.Location = new Point(12, 5);
+            label1.Size = new Size(100, 20);
+            label1.BackColor = Color.Transparent;
+            
             manualSyncBtn = new RoundedButton();
             manualSyncBtn.Text = "🔄 手动同步";
-            manualSyncBtn.Size = new Size(130, 42);
-            manualSyncBtn.Location = new Point(35, 215);
-            manualSyncBtn.BorderRadius = 21;
+            manualSyncBtn.Size = new Size(130, 38);
+            manualSyncBtn.Location = new Point(15, 12);
+            manualSyncBtn.BorderRadius = 19;
             manualSyncBtn.NormalColor = Color.FromArgb(0, 120, 212);
             manualSyncBtn.HoverColor = Color.FromArgb(0, 140, 240);
             manualSyncBtn.PressColor = Color.FromArgb(0, 100, 180);
@@ -169,12 +239,29 @@ namespace BeijingClock
             manualSyncBtn.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             manualSyncBtn.Click += ManualSyncBtn_Click;
 
-            // 窗口置顶按钮
+            controlPanel1.Controls.Add(label1);
+            controlPanel1.Controls.Add(manualSyncBtn);
+
+            // ========== 按钮区域 2：窗口设置 ==========
+            Panel controlPanel2 = new Panel();
+            controlPanel2.Size = new Size(480, 55);
+            controlPanel2.Location = new Point(20, 270);
+            controlPanel2.BackColor = Color.FromArgb(22, 28, 48);
+            controlPanel2.Paint += (s, e) => DrawPanelBorder(e.Graphics, controlPanel2.Width, controlPanel2.Height);
+            
+            Label label2 = new Label();
+            label2.Text = "🪟 窗口设置";
+            label2.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            label2.ForeColor = Color.FromArgb(100, 150, 200);
+            label2.Location = new Point(12, 5);
+            label2.Size = new Size(100, 20);
+            label2.BackColor = Color.Transparent;
+            
             topBtn = new RoundedButton();
             topBtn.Text = "📌 置顶 OFF";
-            topBtn.Size = new Size(120, 42);
-            topBtn.Location = new Point(185, 215);
-            topBtn.BorderRadius = 21;
+            topBtn.Size = new Size(120, 38);
+            topBtn.Location = new Point(15, 12);
+            topBtn.BorderRadius = 19;
             topBtn.NormalColor = Color.FromArgb(60, 65, 85);
             topBtn.HoverColor = Color.FromArgb(80, 85, 110);
             topBtn.PressColor = Color.FromArgb(50, 55, 75);
@@ -182,12 +269,29 @@ namespace BeijingClock
             topBtn.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             topBtn.Click += TopBtn_Click;
 
-            // 声音提醒按钮
+            controlPanel2.Controls.Add(label2);
+            controlPanel2.Controls.Add(topBtn);
+
+            // ========== 按钮区域 3：声音提醒 ==========
+            Panel controlPanel3 = new Panel();
+            controlPanel3.Size = new Size(480, 55);
+            controlPanel3.Location = new Point(20, 335);
+            controlPanel3.BackColor = Color.FromArgb(22, 28, 48);
+            controlPanel3.Paint += (s, e) => DrawPanelBorder(e.Graphics, controlPanel3.Width, controlPanel3.Height);
+            
+            Label label3 = new Label();
+            label3.Text = "🔊 声音提醒";
+            label3.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            label3.ForeColor = Color.FromArgb(100, 150, 200);
+            label3.Location = new Point(12, 5);
+            label3.Size = new Size(100, 20);
+            label3.BackColor = Color.Transparent;
+            
             soundBtn = new RoundedButton();
             soundBtn.Text = "🔔 提醒 OFF";
-            soundBtn.Size = new Size(120, 42);
-            soundBtn.Location = new Point(325, 215);
-            soundBtn.BorderRadius = 21;
+            soundBtn.Size = new Size(120, 38);
+            soundBtn.Location = new Point(15, 12);
+            soundBtn.BorderRadius = 19;
             soundBtn.NormalColor = Color.FromArgb(60, 65, 85);
             soundBtn.HoverColor = Color.FromArgb(80, 85, 110);
             soundBtn.PressColor = Color.FromArgb(50, 55, 75);
@@ -195,10 +299,13 @@ namespace BeijingClock
             soundBtn.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             soundBtn.Click += SoundBtn_Click;
 
+            controlPanel3.Controls.Add(label3);
+            controlPanel3.Controls.Add(soundBtn);
+
             // 声音设置面板
             soundPanel = new Panel();
             soundPanel.Size = new Size(460, 50);
-            soundPanel.Location = new Point(20, 270);
+            soundPanel.Location = new Point(20, 400);
             soundPanel.BackColor = Color.FromArgb(30, 38, 60);
             soundPanel.Visible = false;
             soundPanel.Paint += SoundPanel_Paint;
@@ -263,19 +370,39 @@ namespace BeijingClock
             statusLabel.ForeColor = Color.FromArgb(0, 210, 140);
             statusLabel.Font = new Font("Segoe UI", 9);
             statusLabel.AutoSize = false;
-            statusLabel.Size = new Size(460, 30);
-            statusLabel.TextAlign = ContentAlignment.MiddleCenter;
-            statusLabel.Location = new Point(20, 345);
+            statusLabel.Size = new Size(480, 25);
+            statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+            statusLabel.Location = new Point(25, 465);
             statusLabel.BackColor = Color.Transparent;
+
+            // 版本号标签
+            versionLabel = new Label();
+            versionLabel.Text = "v" + VERSION;
+            versionLabel.ForeColor = Color.FromArgb(80, 100, 130);
+            versionLabel.Font = new Font("Segoe UI", 8);
+            versionLabel.AutoSize = false;
+            versionLabel.Size = new Size(80, 25);
+            versionLabel.TextAlign = ContentAlignment.MiddleRight;
+            versionLabel.Location = new Point(420, 465);
+            versionLabel.BackColor = Color.Transparent;
 
             this.Controls.Add(closeBtn);
             this.Controls.Add(minBtn);
             this.Controls.Add(timePanel);
-            this.Controls.Add(manualSyncBtn);
-            this.Controls.Add(topBtn);
-            this.Controls.Add(soundBtn);
+            this.Controls.Add(controlPanel1);
+            this.Controls.Add(controlPanel2);
+            this.Controls.Add(controlPanel3);
             this.Controls.Add(soundPanel);
             this.Controls.Add(statusLabel);
+            this.Controls.Add(versionLabel);
+        }
+
+        private void DrawPanelBorder(Graphics g, int width, int height)
+        {
+            using (Pen pen = new Pen(Color.FromArgb(50, 0, 180, 240), 1))
+            {
+                g.DrawRectangle(pen, 0, 0, width - 1, height - 1);
+            }
         }
 
         private void TimePanel_Paint(object sender, PaintEventArgs e)
@@ -356,6 +483,7 @@ namespace BeijingClock
                 topBtn.PressColor = Color.FromArgb(50, 55, 75);
                 topBtn.ForeColor = Color.FromArgb(180, 190, 220);
             }
+            this.ActiveControl = null;
         }
 
         private void SoundBtn_Click(object sender, EventArgs e)
@@ -382,6 +510,7 @@ namespace BeijingClock
                 soundPanel.Visible = false;
                 StopAlertTimer();
             }
+            this.ActiveControl = null;
         }
 
         private void StartAlertTimer()
@@ -465,6 +594,7 @@ namespace BeijingClock
             }
 
             manualSyncBtn.Enabled = true;
+            this.ActiveControl = null;
         }
 
         private async System.Threading.Tasks.Task<bool> SyncFromNetwork()
@@ -545,7 +675,7 @@ namespace BeijingClock
         private void StartAutoSync()
         {
             Timer autoSyncTimer = new Timer();
-            autoSyncTimer.Interval = 60000; // 每分钟自动同步一次
+            autoSyncTimer.Interval = 60000;
             autoSyncTimer.Tick += async (s, e) =>
             {
                 await SyncFromNetwork();
@@ -556,17 +686,14 @@ namespace BeijingClock
         private void StartTimer()
         {
             timer = new Timer();
-            timer.Interval = 100; // 改为100毫秒刷新一次，减少CPU占用
+            timer.Interval = 100;
             timer.Tick += Timer_Tick;
             timer.Start();
         }
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            // 关键修复：基于同步时间 + 实际经过的时间，而不是累加
             DateTime now = currentTime + (DateTime.Now - lastSyncTime);
-            
-            // 只显示1位毫秒
             int tenthSecond = now.Millisecond / 100;
             timeLabel.Text = now.ToString("HH:mm:ss") + "." + tenthSecond.ToString();
             dateLabel.Text = now.ToString("yyyy年MM月dd日 dddd");
@@ -581,7 +708,7 @@ namespace BeijingClock
         }
     }
 
-    // 圆角按钮自定义控件
+    // 圆角按钮自定义控件 - 完全无焦点框
     public class RoundedButton : Button
     {
         private Color _normalColor = Color.FromArgb(0, 120, 212);
@@ -636,6 +763,8 @@ namespace BeijingClock
             this.BackColor = _normalColor;
             this.ForeColor = Color.White;
             this.Cursor = Cursors.Hand;
+            
+            // 彻底禁用焦点
             this.TabStop = false;
             this.SetStyle(ControlStyles.Selectable, false);
             
@@ -645,9 +774,17 @@ namespace BeijingClock
             this.MouseUp += (s, e) => { _isPressing = false; Invalidate(); };
         }
 
+        // 防止显示焦点虚线框
         protected override bool ShowFocusCues
         {
             get { return false; }
+        }
+
+        // 防止控件被选中
+        protected override void OnGotFocus(EventArgs e)
+        {
+            base.OnGotFocus(e);
+            this.Invalidate();
         }
 
         protected override void OnPaint(PaintEventArgs pevent)
@@ -657,24 +794,28 @@ namespace BeijingClock
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             Color currentColor;
-            int pressOffset = 0;
+            int pressOffsetX = 0;
+            int pressOffsetY = 0;
             
             if (_isPressing)
             {
                 currentColor = _pressColor;
-                pressOffset = 1;
+                pressOffsetX = 1;
+                pressOffsetY = 1;
             }
             else if (_isHovering)
                 currentColor = _hoverColor;
             else
                 currentColor = _normalColor;
 
+            // 绘制圆角背景
             using (GraphicsPath path = GetRoundedRectangle(this.ClientRectangle, _borderRadius))
             using (SolidBrush brush = new SolidBrush(currentColor))
             {
                 g.FillPath(brush, path);
             }
 
+            // 绘制边框
             if (_borderWidth > 0)
             {
                 using (GraphicsPath path = GetRoundedRectangle(this.ClientRectangle, _borderRadius))
@@ -684,6 +825,7 @@ namespace BeijingClock
                 }
             }
 
+            // 绘制内发光效果
             if (_isHovering && !_isPressing)
             {
                 Rectangle innerRect = new Rectangle(2, 2, this.Width - 4, this.Height - 4);
@@ -694,25 +836,28 @@ namespace BeijingClock
                 }
             }
 
+            // 绘制文字
             using (StringFormat sf = new StringFormat())
             {
                 sf.Alignment = StringAlignment.Center;
                 sf.LineAlignment = StringAlignment.Center;
                 
-                Rectangle textRect = this.ClientRectangle;
-                if (pressOffset > 0)
-                {
-                    textRect = new Rectangle(
-                        this.ClientRectangle.X,
-                        this.ClientRectangle.Y + pressOffset,
-                        this.ClientRectangle.Width,
-                        this.ClientRectangle.Height);
-                }
+                Rectangle textRect = new Rectangle(
+                    this.ClientRectangle.X + pressOffsetX,
+                    this.ClientRectangle.Y + pressOffsetY,
+                    this.ClientRectangle.Width,
+                    this.ClientRectangle.Height);
                 
                 using (SolidBrush textBrush = new SolidBrush(this.ForeColor))
                 {
                     g.DrawString(this.Text, this.Font, textBrush, textRect, sf);
                 }
+            }
+            
+            // 不绘制默认焦点框
+            if (this.Focused)
+            {
+                ControlPaint.DrawFocusRectangle(g, this.ClientRectangle, this.ForeColor, this.BackColor);
             }
         }
 
