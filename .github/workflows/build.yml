@@ -4,6 +4,17 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      version_type:
+        description: '版本类型 (patch/minor/major)'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - manual
 
 jobs:
   build:
@@ -12,14 +23,130 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    # 读取并自动递增版本号
+    - name: Auto increment version
+      id: version
+      shell: pwsh
+      run: |
+        # 读取当前版本
+        $version = Get-Content version.txt -Raw
+        Write-Host "当前版本: $version"
+        
+        # 解析版本号
+        $versionParts = $version.Trim().Split('.')
+        $major = [int]$versionParts[0]
+        $minor = [int]$versionParts[1]
+        $patch = [int]$versionParts[2]
+        
+        # 根据触发方式决定版本递增
+        $versionType = "${{ github.event.inputs.version_type }}"
+        
+        if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $versionType -ne 'manual') {
+            switch ($versionType) {
+                'major' { 
+                    $major += 1
+                    $minor = 0
+                    $patch = 0
+                }
+                'minor' { 
+                    $minor += 1
+                    $patch = 0
+                }
+                default { 
+                    $patch += 1
+                }
+            }
+        } elseif ($env:GITHUB_EVENT_NAME -eq 'push') {
+            # push时自动增加patch版本号
+            $patch += 1
+        }
+        
+        $newVersion = "$major.$minor.$patch"
+        Write-Host "新版本: $newVersion"
+        
+        # 保存新版本号
+        $newVersion | Out-File -FilePath version.txt -NoNewline
+        
+        # 获取日期
+        $buildDate = Get-Date -Format "yyyy.MM.dd"
+        
+        # 设置输出变量
+        Write-Host "::set-output name=version::$newVersion"
+        Write-Host "::set-output name=major::$major"
+        Write-Host "::set-output name=minor::$minor"
+        Write-Host "::set-output name=patch::$patch"
+        Write-Host "::set-output name=build_date::$buildDate"
+    
+    # 提交版本号更新
+    - name: Commit version update
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add version.txt
+        git diff --quiet && git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+        git push
+    
+    # 动态生成 AssemblyInfo.cs（用于文件版本）
+    - name: Generate AssemblyInfo
+      run: |
+        @"
+        using System.Reflection;
+        [assembly: AssemblyVersion("${{ steps.version.outputs.version }}.0")]
+        [assembly: AssemblyFileVersion("${{ steps.version.outputs.version }}.0")]
+        "@ > AssemblyInfo.cs
+    
+    # 动态生成带版本号的 C# 代码
+    - name: Generate versioned source
+      shell: pwsh
+      run: |
+        $code = Get-Content BeijingClock.cs -Raw
+        
+        # 替换版本号
+        $code = $code -replace 'private const string VERSION = ".*?"', ('private const string VERSION = "' + '${{ steps.version.outputs.version }}' + '"')
+        $code = $code -replace 'private const string BUILD_DATE = ".*?"', ('private const string BUILD_DATE = "' + '${{ steps.version.outputs.build_date }}' + '"')
+        
+        # 替换窗口标题中的版本号显示
+        $code = $code -replace 'this.Text = "撞车同步器 v.*?"', ('this.Text = "撞车同步器 v' + '${{ steps.version.outputs.version }}' + '"')
+        
+        $code | Out-File -FilePath BeijingClock.cs -Encoding UTF8
+    
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    
     - name: Compile with csc.exe
       shell: cmd
       run: |
-        dir /s /b "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
         "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe" /target:winexe /out:BeijingClock.exe /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:System.Net.Http.dll BeijingClock.cs
+    
+    - name: Rename EXE with version
+      shell: pwsh
+      run: |
+        $oldName = "BeijingClock.exe"
+        $newName = "CrashSync_v${{ steps.version.outputs.version }}.exe"
+        Rename-Item -Path $oldName -NewName $newName
+        Write-Host "Renamed to: $newName"
     
     - name: Upload EXE
       uses: actions/upload-artifact@v4
       with:
-        name: BeijingClock-Windows
-        path: BeijingClock.exe
+        name: CrashSync_v${{ steps.version.outputs.version }}
+        path: CrashSync_v${{ steps.version.outputs.version }}.exe
+    
+    # 创建 Release 并上传
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        name: "撞车同步器 v${{ steps.version.outputs.version }}"
+        body: |
+          ## 撞车同步器 v${{ steps.version.outputs.version }}
+          
+          ### 更新内容
+          - 自动构建版本 ${{ steps.version.outputs.version }}
+          - 构建日期: ${{ steps.version.outputs.build_date }}
+          
+          ### 下载说明
+          下载下方的 `CrashSync_v${{ steps.version.outputs.version }}.exe` 即可使用
+        files: CrashSync_v${{ steps.version.outputs.version }}.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
