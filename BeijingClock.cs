@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.Net;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
@@ -69,7 +68,6 @@ namespace BeijingClock
             SyncTime();
             StartAutoSync();
             
-            // 移除所有控件的焦点
             this.GotFocus += (s, e) => { this.ActiveControl = null; };
             this.MouseClick += (s, e) => { this.ActiveControl = null; };
         }
@@ -81,7 +79,6 @@ namespace BeijingClock
             this.BackColor = Color.FromArgb(15, 20, 35);
             this.Opacity = 0.96;
             
-            // 设置窗口图标
             this.Icon = CreateAppIcon();
             
             MARGINS margins = new MARGINS();
@@ -94,7 +91,6 @@ namespace BeijingClock
             this.MouseDown += Form_MouseDown;
         }
 
-        // 创建应用程序图标
         private Icon CreateAppIcon()
         {
             Bitmap bmp = new Bitmap(64, 64);
@@ -103,32 +99,27 @@ namespace BeijingClock
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.Clear(Color.Transparent);
                 
-                // 绘制圆形背景
                 using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(0, 120, 212)))
                 {
                     g.FillEllipse(bgBrush, 4, 4, 56, 56);
                 }
                 
-                // 绘制钟表外圈
                 using (Pen pen = new Pen(Color.White, 3))
                 {
                     g.DrawEllipse(pen, 8, 8, 48, 48);
                 }
                 
-                // 绘制时针
                 using (Pen handPen = new Pen(Color.White, 3))
                 {
                     handPen.EndCap = LineCap.ArrowAnchor;
                     g.DrawLine(handPen, 32, 32, 32, 20);
                 }
                 
-                // 绘制分针
                 using (Pen handPen = new Pen(Color.White, 2))
                 {
                     g.DrawLine(handPen, 32, 32, 42, 28);
                 }
                 
-                // 绘制中心点
                 using (SolidBrush centerBrush = new SolidBrush(Color.White))
                 {
                     g.FillEllipse(centerBrush, 29, 29, 6, 6);
@@ -149,7 +140,7 @@ namespace BeijingClock
 
         private void InitializeComponent()
         {
-            this.Text = "北京时间同步器 v" + VERSION;
+            this.Text = "撞车同步器 v" + VERSION;
             this.Size = new Size(520, 470);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(15, 20, 35);
@@ -708,7 +699,7 @@ namespace BeijingClock
         }
     }
 
-    // 圆角按钮自定义控件 - 完全无焦点框
+    // 圆角按钮自定义控件
     public class RoundedButton : Button
     {
         private Color _normalColor = Color.FromArgb(0, 120, 212);
@@ -764,7 +755,6 @@ namespace BeijingClock
             this.ForeColor = Color.White;
             this.Cursor = Cursors.Hand;
             
-            // 彻底禁用焦点
             this.TabStop = false;
             this.SetStyle(ControlStyles.Selectable, false);
             
@@ -774,17 +764,9 @@ namespace BeijingClock
             this.MouseUp += (s, e) => { _isPressing = false; Invalidate(); };
         }
 
-        // 防止显示焦点虚线框
         protected override bool ShowFocusCues
         {
             get { return false; }
-        }
-
-        // 防止控件被选中
-        protected override void OnGotFocus(EventArgs e)
-        {
-            base.OnGotFocus(e);
-            this.Invalidate();
         }
 
         protected override void OnPaint(PaintEventArgs pevent)
@@ -808,14 +790,12 @@ namespace BeijingClock
             else
                 currentColor = _normalColor;
 
-            // 绘制圆角背景
             using (GraphicsPath path = GetRoundedRectangle(this.ClientRectangle, _borderRadius))
             using (SolidBrush brush = new SolidBrush(currentColor))
             {
                 g.FillPath(brush, path);
             }
 
-            // 绘制边框
             if (_borderWidth > 0)
             {
                 using (GraphicsPath path = GetRoundedRectangle(this.ClientRectangle, _borderRadius))
@@ -825,7 +805,6 @@ namespace BeijingClock
                 }
             }
 
-            // 绘制内发光效果
             if (_isHovering && !_isPressing)
             {
                 Rectangle innerRect = new Rectangle(2, 2, this.Width - 4, this.Height - 4);
@@ -836,7 +815,6 @@ namespace BeijingClock
                 }
             }
 
-            // 绘制文字
             using (StringFormat sf = new StringFormat())
             {
                 sf.Alignment = StringAlignment.Center;
@@ -852,12 +830,6 @@ namespace BeijingClock
                 {
                     g.DrawString(this.Text, this.Font, textBrush, textRect, sf);
                 }
-            }
-            
-            // 不绘制默认焦点框
-            if (this.Focused)
-            {
-                ControlPaint.DrawFocusRectangle(g, this.ClientRectangle, this.ForeColor, this.BackColor);
             }
         }
 
