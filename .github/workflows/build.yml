@@ -14,7 +14,6 @@ on:
           - patch
           - minor
           - major
-          - manual
 
 jobs:
   build:
@@ -23,6 +22,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    # 创建 version.txt（如果不存在）
+    - name: Create version.txt if not exists
+      shell: pwsh
+      run: |
+        if (-not (Test-Path "version.txt")) {
+            "2.1.0" | Out-File -FilePath version.txt -NoNewline
+            Write-Host "Created version.txt with initial version 2.1.0"
+        }
+    
     # 读取并自动递增版本号
     - name: Auto increment version
       id: version
@@ -30,10 +38,11 @@ jobs:
       run: |
         # 读取当前版本
         $version = Get-Content version.txt -Raw
+        $version = $version.Trim()
         Write-Host "当前版本: $version"
         
         # 解析版本号
-        $versionParts = $version.Trim().Split('.')
+        $versionParts = $version.Split('.')
         $major = [int]$versionParts[0]
         $minor = [int]$versionParts[1]
         $patch = [int]$versionParts[2]
@@ -41,7 +50,7 @@ jobs:
         # 根据触发方式决定版本递增
         $versionType = "${{ github.event.inputs.version_type }}"
         
-        if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $versionType -ne 'manual') {
+        if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
             switch ($versionType) {
                 'major' { 
                     $major += 1
@@ -56,7 +65,7 @@ jobs:
                     $patch += 1
                 }
             }
-        } elseif ($env:GITHUB_EVENT_NAME -eq 'push') {
+        } else {
             # push时自动增加patch版本号
             $patch += 1
         }
@@ -70,12 +79,12 @@ jobs:
         # 获取日期
         $buildDate = Get-Date -Format "yyyy.MM.dd"
         
-        # 设置输出变量
-        Write-Host "::set-output name=version::$newVersion"
-        Write-Host "::set-output name=major::$major"
-        Write-Host "::set-output name=minor::$minor"
-        Write-Host "::set-output name=patch::$patch"
-        Write-Host "::set-output name=build_date::$buildDate"
+        # 设置输出变量（GitHub Actions 新版语法）
+        echo "version=$newVersion" >> $env:GITHUB_OUTPUT
+        echo "major=$major" >> $env:GITHUB_OUTPUT
+        echo "minor=$minor" >> $env:GITHUB_OUTPUT
+        echo "patch=$patch" >> $env:GITHUB_OUTPUT
+        echo "build_date=$buildDate" >> $env:GITHUB_OUTPUT
     
     # 提交版本号更新
     - name: Commit version update
@@ -84,16 +93,7 @@ jobs:
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add version.txt
         git diff --quiet && git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
-        git push
-    
-    # 动态生成 AssemblyInfo.cs（用于文件版本）
-    - name: Generate AssemblyInfo
-      run: |
-        @"
-        using System.Reflection;
-        [assembly: AssemblyVersion("${{ steps.version.outputs.version }}.0")]
-        [assembly: AssemblyFileVersion("${{ steps.version.outputs.version }}.0")]
-        "@ > AssemblyInfo.cs
+        git push || echo "No changes to push"
     
     # 动态生成带版本号的 C# 代码
     - name: Generate versioned source
@@ -106,12 +106,9 @@ jobs:
         $code = $code -replace 'private const string BUILD_DATE = ".*?"', ('private const string BUILD_DATE = "' + '${{ steps.version.outputs.build_date }}' + '"')
         
         # 替换窗口标题中的版本号显示
-        $code = $code -replace 'this.Text = "撞车同步器 v.*?"', ('this.Text = "撞车同步器 v' + '${{ steps.version.outputs.version }}' + '"')
+        $code = $code -replace '撞车同步器 v[\d\.]+', ('撞车同步器 v' + '${{ steps.version.outputs.version }}')
         
         $code | Out-File -FilePath BeijingClock.cs -Encoding UTF8
-    
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
     
     - name: Compile with csc.exe
       shell: cmd
@@ -123,7 +120,7 @@ jobs:
       run: |
         $oldName = "BeijingClock.exe"
         $newName = "CrashSync_v${{ steps.version.outputs.version }}.exe"
-        Rename-Item -Path $oldName -NewName $newName
+        Rename-Item -Path $oldName -NewName $newName -ErrorAction SilentlyContinue
         Write-Host "Renamed to: $newName"
     
     - name: Upload EXE
@@ -131,22 +128,3 @@ jobs:
       with:
         name: CrashSync_v${{ steps.version.outputs.version }}
         path: CrashSync_v${{ steps.version.outputs.version }}.exe
-    
-    # 创建 Release 并上传
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ steps.version.outputs.version }}
-        name: "撞车同步器 v${{ steps.version.outputs.version }}"
-        body: |
-          ## 撞车同步器 v${{ steps.version.outputs.version }}
-          
-          ### 更新内容
-          - 自动构建版本 ${{ steps.version.outputs.version }}
-          - 构建日期: ${{ steps.version.outputs.build_date }}
-          
-          ### 下载说明
-          下载下方的 `CrashSync_v${{ steps.version.outputs.version }}.exe` 即可使用
-        files: CrashSync_v${{ steps.version.outputs.version }}.exe
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
