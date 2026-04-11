@@ -1,0 +1,34 @@
+name: Create Release
+
+on:
+  workflow_run:
+    workflows: ["Build Windows EXE"]
+    types:
+      - completed
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CrashSync_v*
+          path: ./release
+      
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(cat version.txt)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: "撞车同步器 v${{ steps.get_version.outputs.version }}"
+          files: ./release/*
+          generate_release_notes: true
